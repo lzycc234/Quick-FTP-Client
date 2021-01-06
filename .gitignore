@@ -12,6 +12,6 @@
 *.pch
 
 #
-./*.zip
-./Release/
-./Debug/
+*.zip
+Release/
+Debug/
