@@ -1,6 +1,0 @@
-﻿  uic FTPClient.ui
-  DialogConnect.cpp
-  FTPClient.cpp
-  main.cpp
-  moc_FTPClient.cpp
-  FTP Client.vcxproj -> E:\lzycc234\Projects\2020-2021 计网课程设计\FTP Client\Release\FTP Client.exe
