@@ -157,25 +157,25 @@ void FTPClient::addFileInfoListRemote(const QUrlInfo & url)
 
 void FTPClient::connectFtp()
 {
-	if (!mDialogConnect.exec())
+	if (!mDialogConnect.exec())//若连接窗口被直接关闭则取消连接
 	{
 		return;
 	}
-	mAddress = mDialogConnect.getAddress();
-	mPort = mDialogConnect.getPort();
-	disconnectFtp();
+	mAddress = mDialogConnect.getAddress();//获取地址
+	mPort = mDialogConnect.getPort();//获取端口
+	disconnectFtp();//先断开之前的连接
 	mFtp = new QFtp(this);
 	initFtp();
 	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpLoggedIn);
-	mFtp->connectToHost(mAddress, mPort);
-	if (mDialogConnect.isAnonymous())
+	mFtp->connectToHost(mAddress, mPort);//建立连接
+	if (mDialogConnect.isAnonymous())//匿名连接
 	{
 		mFtp->login();
 	}
 	else
 	{
-		mUser = mDialogConnect.getUser();
-		mPass = mDialogConnect.getPass();
+		mUser = mDialogConnect.getUser();//获取用户名
+		mPass = mDialogConnect.getPass();//获取密码
 		mFtp->login(mUser, mPass);
 	}
 }
@@ -183,22 +183,21 @@ void FTPClient::connectFtp()
 void FTPClient::disconnectFtp()
 {
 	QPalette palette;
-	if (mFtp)
+	if (mFtp)//若已有连接则直接断开连接
 	{
 		mFtp->close();
 		mFtp->deleteLater();
 		mFtp = nullptr;
 	}
-	clearFileInfoListsRemote();
-	mRemoteCurrentDir = QDir::separator();
-	ui.lineEditPathRemote->clear();
-	//ui.pushButtonDisconnect->setEnabled(false);
+	clearFileInfoListsRemote();//清空服务端文件浏览列表
+	mRemoteCurrentDir = QDir::separator();//重置服务端当前路径
+	ui.lineEditPathRemote->clear();//清空服务端当前路径
+	//将服务端相关操作按钮重新禁用
 	ui.pushButtonUpload->setEnabled(false);
 	ui.pushButtonDownload->setEnabled(false);
-	//ui.pushButtonRenameLocal->setEnabled(false);
-	//ui.pushButtonDeleteLocal->setEnabled(false);
 	ui.pushButtonRenameRemote->setEnabled(false);
 	ui.pushButtonDeleteRemote->setEnabled(false);
+	//
 	ui.labelSelectedFileRemote->setText(QString::fromLocal8Bit("已选："));
 	mLabelFtpUser->setText(QString("User:%1").arg("NULL"));
 	palette.setColor(QPalette::WindowText, Qt::black);
@@ -234,20 +233,21 @@ void FTPClient::slotPushButtonDisconnectClicked()
 void FTPClient::slotPushButtonUploadClicked()
 {
 	QListWidgetItem * currentItem = ui.listWidgetFileLocal->currentItem();
-	if (!currentItem)
+	if (!currentItem)//判断是否选中文件
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("未选中文件！"));
 		return;
 	}
-	QString fileName = currentItem->text();
-	QString filePath = mLocalDir.absolutePath() + QDir::separator() + fileName;
-	if (QFileInfo(filePath).isDir())
+	QString fileName = currentItem->text();//获取所选文件名
+	QString filePath = mLocalDir.absolutePath() + QDir::separator() + fileName;//获取所选文件路径
+	if (QFileInfo(filePath).isDir())//判断所选是否为文件夹，若是文件夹则取消上传
 	{
 		return;
 	}
 	mFile.setFileName(filePath);
-	if (mIsRemoteItemDir.contains(fileName))
+	if (mIsRemoteItemDir.contains(fileName))//判断服务端当前路径是否存在同名文件
 	{
+		//弹出是否继续上传窗口
 		if (QMessageBox::question(this,
 			QString::fromLocal8Bit("询问"),
 			QString("%1:%2\n%3").arg(QString::fromLocal8Bit("已存在同名文件")).arg(fileName).arg(QString::fromLocal8Bit("是否继续？"))) != QMessageBox::Yes)
@@ -255,7 +255,7 @@ void FTPClient::slotPushButtonUploadClicked()
 			return;
 		}
 	}
-	if (!mFile.open(QIODevice::ReadOnly))
+	if (!mFile.open(QIODevice::ReadOnly))//打开本地文件
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("无法上传所选文件！"));
 		mFile.close();
@@ -270,20 +270,20 @@ void FTPClient::slotPushButtonUploadClicked()
 	{
 		uploadPath = QString("%1%2%3").arg(mRemoteCurrentDir).arg(QDir::separator()).arg(fileName);
 	}
-	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpUploadFinished);
-	mFtp->put(&mFile, QString::fromLatin1(uploadPath.toLocal8Bit()));
+	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpUploadFinished);//将上传结果建立连接
+	mFtp->put(&mFile, QString::fromLatin1(uploadPath.toLocal8Bit()));//发出上传命令
 }
 
 void FTPClient::slotPushButtonDownloadClicked()
 {
 	QListWidgetItem * currentItem = ui.listWidgetFileRemote->currentItem();
-	if (!currentItem)
+	if (!currentItem)//判断是否选中文件
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("未选中文件！"));
 		return;
 	}
-	QString fileName = currentItem->text();
-	QString filePath;
+	QString fileName = currentItem->text();//获取所选文件名
+	QString filePath;//获取所选文件路径
 	if (mRemoteCurrentDir.length() == 1)
 	{
 		filePath = QString("%1%2").arg(mRemoteCurrentDir).arg(fileName);
@@ -292,15 +292,16 @@ void FTPClient::slotPushButtonDownloadClicked()
 	{
 		filePath = QString("%1%2%3").arg(mRemoteCurrentDir).arg(QDir::separator()).arg(fileName);
 	}
-	if (mIsRemoteItemDir[fileName])
+	if (mIsRemoteItemDir[fileName])//判断所选是否为文件夹，若是文件夹则取消下载
 	{
 		return;
 	}
 
-	QString downloadPath= mLocalDir.absolutePath() + QDir::separator() + fileName;
+	QString downloadPath= mLocalDir.absolutePath() + QDir::separator() + fileName;//下载至本地的文件路径
 	mFile.setFileName(downloadPath);
-	if (mFile.exists())
+	if (mFile.exists())//若本地当前路径已有同名文件
 	{
+		//弹出是否继续下载窗口
 		if (QMessageBox::question(this,
 			QString::fromLocal8Bit("询问"),
 			QString("%1:%2\n%3").arg(QString::fromLocal8Bit("已存在同名文件")).arg(fileName).arg(QString::fromLocal8Bit("是否继续下载？"))) != QMessageBox::Yes)
@@ -308,14 +309,14 @@ void FTPClient::slotPushButtonDownloadClicked()
 			return;
 		}
 	}
-	if (!mFile.open(QIODevice::WriteOnly))
+	if (!mFile.open(QIODevice::WriteOnly))//打开本地文件准备下载
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("无法下载所选文件！"));
 		mFile.close();
 		return;
 	}
-	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpDownloadFinished);
-	mFtp->get(QString::fromLatin1(filePath.toLocal8Bit()), &mFile);
+	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpDownloadFinished);//将下载结果建立连接
+	mFtp->get(QString::fromLatin1(filePath.toLocal8Bit()), &mFile);//发送下载命令
 }
 
 void FTPClient::slotPushButtonParentDirLocalClicked()
@@ -353,23 +354,23 @@ void FTPClient::slotPushButtonParentDirRemoteClicked()
 void FTPClient::slotPushButtonRenameLocalClicked()
 {
 	QPalette palette;
-	if (!ui.listWidgetFileLocal->currentItem())
+	if (!ui.listWidgetFileLocal->currentItem())//判断是否已选中文件/文件夹
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("未选中任何文件！"));
 		return;
 	}
-	if (mDialogGetName.exec() != QDialog::Accepted)
+	if (mDialogGetName.exec() != QDialog::Accepted)//若重命名窗口被直接关闭则取消重命名
 	{
 		return;
 	}
-	QString selectedFileName = ui.listWidgetFileLocal->currentItem()->text();
-	QString newName = mDialogGetName.getName();
-	if (newName.isEmpty())
+	QString selectedFileName = ui.listWidgetFileLocal->currentItem()->text();//获取选中文件的文件名
+	QString newName = mDialogGetName.getName();//获取新文件名
+	if (newName.isEmpty())//判断输入的新文件名是否为空
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("已输入文件名为空！"));
 		return;
 	}
-	if (mLocalDir.rename(selectedFileName, newName))
+	if (mLocalDir.rename(selectedFileName, newName))//判断是否重命名成功
 	{
 		palette.setColor(QPalette::WindowText, Qt::darkGreen);
 		mLabelFtpOpState->setPalette(palette);
@@ -393,17 +394,18 @@ void FTPClient::slotPushButtonRenameLocalClicked()
 void FTPClient::slotPushButtonDeleteLocalClicked()
 {
 	QPalette palette;
-	if (!ui.listWidgetFileLocal->currentItem())
+	if (!ui.listWidgetFileLocal->currentItem())//判断是否已选中文件/文件夹
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("未选中任何文件！"));
 		return;
 	}
-	QString selectedFileName = ui.listWidgetFileLocal->currentItem()->text();
+	QString selectedFileName = ui.listWidgetFileLocal->currentItem()->text();//获取选中文件的文件名
+	//弹出确认删除窗口
 	if (QMessageBox::question(this, QString::fromLocal8Bit("删除确认"), QString("%1:%2?").arg(QString::fromLocal8Bit("确认删除")).arg(selectedFileName)) != QMessageBox::Yes)
 	{
 		return;
 	}
-	if (mLocalDir.remove(selectedFileName) | mLocalDir.rmdir(selectedFileName))
+	if (mLocalDir.remove(selectedFileName) | mLocalDir.rmdir(selectedFileName))//判断所选的是文件或文件夹以及判断是否删除成功
 	{
 		palette.setColor(QPalette::WindowText, Qt::darkGreen);
 		mLabelFtpOpState->setPalette(palette);
@@ -419,46 +421,47 @@ void FTPClient::slotPushButtonDeleteLocalClicked()
 
 void FTPClient::slotPushButtonRenameRemoteClicked()
 {
-	if (!ui.listWidgetFileRemote->currentItem())
+	if (!ui.listWidgetFileRemote->currentItem())//判断是否已选中文件/文件夹
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("未选中任何文件！"));
 		return;
 	}
-	if (mDialogGetName.exec() != QDialog::Accepted)
+	if (mDialogGetName.exec() != QDialog::Accepted)//若重命名窗口被直接关闭则取消重命名
 	{
 		return;
 	}
-	QString selectedFileName = ui.listWidgetFileRemote->currentItem()->text();
-	QString newName = mDialogGetName.getName();
-	if (newName.isEmpty())
+	QString selectedFileName = ui.listWidgetFileRemote->currentItem()->text();//获取选中文件的文件名
+	QString newName = mDialogGetName.getName();//获取新文件名
+	if (newName.isEmpty())//判断输入的新文件名是否为空
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("已输入文件名为空！"));
 		return;
 	}
-	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpRenameFinished);
-	mFtp->rename(QString::fromLatin1(selectedFileName.toLocal8Bit()), QString::fromLatin1(newName.toLocal8Bit()));
+	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpRenameFinished);//将重命名的结果建立连接
+	mFtp->rename(QString::fromLatin1(selectedFileName.toLocal8Bit()), QString::fromLatin1(newName.toLocal8Bit()));//发出重命名命令
 }
 
 void FTPClient::slotPushButtonDeleteRemoteClicked()
 {
-	if (!ui.listWidgetFileRemote->currentItem())
+	if (!ui.listWidgetFileRemote->currentItem())//判断是否已选中文件/文件夹
 	{
 		QMessageBox::critical(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("未选中任何文件！"));
 		return;
 	}
-	QString selectedFileName = ui.listWidgetFileRemote->currentItem()->text();
+	QString selectedFileName = ui.listWidgetFileRemote->currentItem()->text();//获取选中文件的文件名
+	//弹出确认删除窗口
 	if (QMessageBox::question(this, QString::fromLocal8Bit("删除确认"), QString("%1:%2?").arg(QString::fromLocal8Bit("确认删除")).arg(selectedFileName)) != QMessageBox::Yes)
 	{
 		return;
 	}
-	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpDeleteFinished);
-	if (mIsRemoteItemDir[selectedFileName])
+	connect(mFtp, &QFtp::commandFinished, this, &FTPClient::slotFtpDeleteFinished);//将删除结果建立连接
+	if (mIsRemoteItemDir[selectedFileName])//判断所选是否为文件夹
 	{
-		mFtp->rmdir(QString::fromLatin1(selectedFileName.toLocal8Bit()));
+		mFtp->rmdir(QString::fromLatin1(selectedFileName.toLocal8Bit()));//发出删除文件夹命令
 	}
 	else
 	{
-		mFtp->remove(QString::fromLatin1(selectedFileName.toLocal8Bit()));
+		mFtp->remove(QString::fromLatin1(selectedFileName.toLocal8Bit()));//发出删除文件命令
 	}
 }
 

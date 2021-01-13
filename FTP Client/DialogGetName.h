@@ -3,7 +3,7 @@
 #include <QDialog>
 #include "ui_DialogGetName.h"
 
-class DialogGetName : public QDialog
+class DialogGetName : public QDialog//继承自QDialog可使用阻塞窗口
 {
 	Q_OBJECT
 
